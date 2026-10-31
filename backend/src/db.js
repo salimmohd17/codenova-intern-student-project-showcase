@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
-const configured = process.env.DATABASE_PATH || './data/projects.db';
+const hasRenderDataDisk = process.env.RENDER === 'true'
+  && fs.existsSync('/var/data');
+const configured = process.env.DATABASE_PATH
+  || (hasRenderDataDisk ? '/var/data/app.db' : './data/projects.db');
 const dbPath = path.isAbsolute(configured) ? configured : path.resolve(process.cwd(), configured);
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new Database(dbPath);
