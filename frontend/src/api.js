@@ -13,7 +13,9 @@ export async function request(path, options = {}) {
       },
     });
   } catch {
-    throw new Error('Unable to connect to the server. Check the backend URL and try again.');
+    throw new Error(
+      'Failed to fetch the backend. Check VITE_API_URL, backend status, and Render FRONTEND_ORIGIN/CORS settings.',
+    );
   }
 
   const payload = await response.json().catch(() => ({}));

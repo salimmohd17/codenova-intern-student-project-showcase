@@ -19,7 +19,19 @@ const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+    let hostname = '';
+    try {
+      hostname = new URL(origin || '').hostname;
+    } catch {
+      hostname = '';
+    }
+
+    const normalizedOrigin = origin?.replace(/\/$/, '');
+    const isConfiguredOrigin = allowedOrigins.includes(normalizedOrigin);
+    const isLocalOrigin = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isVercelOrigin = hostname.endsWith('.vercel.app');
+
+    if (!origin || allowedOrigins.length === 0 || isConfiguredOrigin || isLocalOrigin || isVercelOrigin) {
       callback(null, true);
       return;
     }
