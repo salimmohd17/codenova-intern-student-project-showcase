@@ -6,7 +6,12 @@ import admin from './routes/admin.js';
 import './db.js';
 
 const app = express();
-
+app.get('/', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'CodeNova Student Project Showcase API is running.'
+  });
+});
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')
   .split(',')
   .map(origin => origin.trim().replace(/\/$/, ''))
