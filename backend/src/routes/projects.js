@@ -4,6 +4,12 @@ import { validateProject } from '../validation.js';
 
 const router = Router();
 
+const getRatingSummary = projectId => db.prepare(`
+  SELECT COUNT(*) AS count, COALESCE(AVG(rating), 0) AS average
+  FROM project_ratings
+  WHERE project_id = ?
+`).get(projectId);
+
 const parseTags = value => {
   try {
     const tags = JSON.parse(value);
@@ -22,7 +28,15 @@ router.get('/', (req, res) => {
     FROM projects
     WHERE status = 'approved'
     ORDER BY submitted_at DESC
-  `).all().map(project => ({ ...project, tags: parseTags(project.tags) }));
+  `).all().map(project => {
+    const rating = getRatingSummary(project.id);
+    return {
+      ...project,
+      tags: parseTags(project.tags),
+      rating_count: rating.count,
+      average_rating: Number(Number(rating.average).toFixed(1)),
+    };
+  });
 
   const projects = rows.filter(project =>
     (!q || `${project.title} ${project.student_name} ${project.description} ${project.tags.join(' ')}`
@@ -34,6 +48,38 @@ router.get('/', (req, res) => {
     .sort((a, b) => a.localeCompare(b));
 
   res.json({ projects, tags, total: projects.length });
+});
+
+router.post('/:id/rating', (req, res) => {
+  const projectId = Number(req.params.id);
+  const rating = Number(req.body?.rating);
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return res.status(400).json({ error: 'Invalid project id.' });
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Rating must be between 1 and 5 stars.' });
+  }
+  if (!db.prepare("SELECT id FROM projects WHERE id=? AND status='approved'").get(projectId)) {
+    return res.status(404).json({ error: 'Published project not found.' });
+  }
+
+  const raterId = String(req.header('x-rater-id') || req.ip || '').trim();
+  if (!raterId) {
+    return res.status(400).json({ error: 'Viewer identifier is required.' });
+  }
+
+  db.prepare(`
+    INSERT INTO project_ratings(project_id, rater_id, rating)
+    VALUES (?, ?, ?)
+    ON CONFLICT(project_id, rater_id) DO UPDATE SET rating=excluded.rating
+  `).run(projectId, raterId, rating);
+
+  const summary = getRatingSummary(projectId);
+  res.json({
+    message: 'Thank you for rating this project.',
+    rating_count: summary.count,
+    average_rating: Number(Number(summary.average).toFixed(1)),
+  });
 });
 
 router.post('/', (req, res) => {

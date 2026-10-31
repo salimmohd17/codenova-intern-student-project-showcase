@@ -21,4 +21,19 @@ db.exec(`CREATE TABLE IF NOT EXISTS projects (
   reviewed_at TEXT,
   review_note TEXT
 );`);
+
+const projectColumns = db.prepare('PRAGMA table_info(projects)').all();
+if (!projectColumns.some(column => column.name === 'tags')) {
+  db.exec("ALTER TABLE projects ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
+}
+
+db.exec(`CREATE TABLE IF NOT EXISTS project_ratings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  rater_id TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(project_id, rater_id),
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+)`);
 export default db;

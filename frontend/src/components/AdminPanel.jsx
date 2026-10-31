@@ -8,6 +8,7 @@ export default function AdminPanel({ onNotice, onChanged }) {
   const [status, setStatus] = useState('pending');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [tagDrafts, setTagDrafts] = useState({});
 
   async function load(adminKey = activeKey, selectedStatus = status) {
     setLoading(true);
@@ -18,6 +19,10 @@ export default function AdminPanel({ onNotice, onChanged }) {
       });
       setProjects(data.projects);
       setActiveKey(adminKey);
+      setKey(adminKey);
+      setTagDrafts(Object.fromEntries(
+        data.projects.map(project => [project.id, project.tags.join(', ')]),
+      ));
       onNotice(null);
     } catch (error) {
       onNotice({ type: 'error', message: error.message });
@@ -54,6 +59,25 @@ export default function AdminPanel({ onNotice, onChanged }) {
       onChanged();
     } catch (error) {
       onNotice({ type: 'error', message: error.message });
+    }
+
+    async function saveTags(id) {
+      try {
+        const tags = tagDrafts[id]
+          .split(',')
+          .map(tag => tag.trim())
+          .filter(Boolean);
+        const data = await request(`/admin/projects/${id}/tags`, {
+          method: 'PATCH',
+          headers: { 'x-admin-key': activeKey },
+          body: JSON.stringify({ tags }),
+        });
+        onNotice({ type: 'success', message: data.message });
+        await load();
+        onChanged();
+      } catch (error) {
+        onNotice({ type: 'error', message: error.message });
+      }
     }
   }
 
@@ -121,6 +145,25 @@ export default function AdminPanel({ onNotice, onChanged }) {
                       <div className="tag-list">
                         {project.tags.map(tag => <span className="tag" key={tag}>{tag}</span>)}
                       </div>
+                      <label className="admin-tags">
+                        <span>Admin tags</span>
+                        <input
+                          className="control"
+                          value={tagDrafts[project.id] || ''}
+                          onChange={event => setTagDrafts(drafts => ({
+                            ...drafts,
+                            [project.id]: event.target.value,
+                          }))}
+                          placeholder="React, Education"
+                        />
+                        <button
+                          type="button"
+                          className="button button--secondary"
+                          onClick={() => saveTags(project.id)}
+                        >
+                          Save tags
+                        </button>
+                      </label>
                     </td>
                     <td>
                       {project.student_name}

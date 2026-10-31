@@ -54,6 +54,27 @@ router.patch('/projects/:id/review', (req, res) => {
   res.json({ message: `Project ${status}.` });
 });
 
+router.patch('/projects/:id/tags', (req, res) => {
+  if (!validId(req.params.id)) {
+    return res.status(400).json({ error: 'Invalid project id.' });
+  }
+
+  const tags = Array.isArray(req.body?.tags)
+    ? [...new Set(req.body.tags.map(tag => String(tag).trim().replace(/^#/, '')).filter(Boolean))]
+    : [];
+  if (!tags.length || tags.length > 8 || tags.some(tag => tag.length > 30)) {
+    return res.status(400).json({ error: 'Provide 1 to 8 tags, each no longer than 30 characters.' });
+  }
+
+  const result = db.prepare('UPDATE projects SET tags=? WHERE id=?')
+    .run(JSON.stringify(tags), Number(req.params.id));
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Project submission not found.' });
+  }
+
+  res.json({ message: 'Project tags updated.', tags });
+});
+
 router.delete('/projects/:id', (req, res) => {
   if (!validId(req.params.id)) {
     return res.status(400).json({ error: 'Invalid project id.' });

@@ -208,7 +208,9 @@ export default function App() {
               <LoadingState label="Loading approved projects" />
             ) : projects.length ? (
               <div className="card-grid">
-                {projects.map(p => <ProjectCard project={p} key={p.id} />)}
+                {projects.map(p => (
+                  <ProjectCard project={p} key={p.id} onNotice={setNotice} />
+                ))}
               </div>
             ) : (
               <EmptyState title="No projects match your search" detail="Try another keyword or choose a different tag." />
