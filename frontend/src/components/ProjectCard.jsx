@@ -1,1 +1,35 @@
-export default function ProjectCard({project}){return <article className="content-card"><div className="content-card__meta"><span>{project.student_name}</span><span className="badge badge--approved">Approved</span></div><h3>{project.title}</h3><p>{project.description}</p><div className="tag-list">{project.tags.map(tag=><span className="tag" key={tag}>{tag}</span>)}</div><div className="content-card__footer"><a className="button button--secondary" href={project.github_url} target="_blank" rel="noreferrer">GitHub repository</a><a className="button button--primary" href={project.demo_url} target="_blank" rel="noreferrer">Live preview</a></div></article>}
+export default function ProjectCard({ project }) {
+  return (
+    <article className="content-card">
+      <div className="content-card__meta">
+        <span>{project.student_name}</span>
+        <span className="badge badge--approved">Approved</span>
+      </div>
+      <h3>{project.title}</h3>
+      <p>{project.description}</p>
+      <div className="tag-list">
+        {project.tags.map(tag => (
+          <span className="tag" key={tag}>{tag}</span>
+        ))}
+      </div>
+      <div className="content-card__footer">
+        <a
+          className="button button--secondary"
+          href={project.github_url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub repository
+        </a>
+        <a
+          className="button button--primary"
+          href={project.demo_url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Live preview
+        </a>
+      </div>
+    </article>
+  );
+}

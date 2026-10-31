@@ -6,7 +6,21 @@ import admin from '../src/routes/admin.js';
 import '../src/db.js';
 
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || true }));
+
+const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')
+  .split(',')
+  .map(origin => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+      callback(null, true);
+      return;
+    }
+    callback(null, false);
+  },
+}));
 app.use(express.json({ limit: '100kb' }));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'CodeNova Task 4 Student Project Showcase API' }));

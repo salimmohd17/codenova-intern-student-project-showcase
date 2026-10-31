@@ -12,22 +12,35 @@ import { useServerWakeup } from './useServerWakeup.js';
 import './styles.css';
 
 const WakeupBanner = ({ status }) => {
-  if (status === 'ready') return null;
+  const [showSuccess, setShowSuccess] = useState(status === 'ready');
+
+  useEffect(() => {
+    if (status !== 'ready') {
+      setShowSuccess(false);
+      return undefined;
+    }
+    setShowSuccess(true);
+    const timer = setTimeout(() => setShowSuccess(false), 4000);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  if (status === 'ready' && !showSuccess) return null;
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
-      background: status === 'error' ? '#fef2f2' : '#eff6ff',
-      borderBottom: `2px solid ${status === 'error' ? '#fca5a5' : '#93c5fd'}`,
+      background: status === 'error' ? '#fef2f2' : status === 'ready' ? '#f0fdf4' : '#eff6ff',
+      borderBottom: `2px solid ${status === 'error' ? '#fca5a5' : status === 'ready' ? '#86efac' : '#93c5fd'}`,
       padding: '12px 24px', display: 'flex', alignItems: 'center',
       gap: '12px', fontSize: '13px',
-      color: status === 'error' ? '#991b1b' : '#1e3a8a',
+      color: status === 'error' ? '#991b1b' : status === 'ready' ? '#166534' : '#1e3a8a',
     }}>
       {status === 'waking' && (
         <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #93c5fd', borderTopColor: '#1d4ed8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       )}
-      {status === 'waking'
-        ? 'Server is waking up - Render free tier spins down after inactivity. This takes up to 60 s on first load. Please wait...'
-        : 'Could not reach the server. Check your connection or try refreshing.'}
+      {status === 'waking' && 'Connecting to backend... Render may take up to 60 seconds to wake up.'}
+      {status === 'ready' && 'Connected to the backend successfully.'}
+      {status === 'error' && 'Could not reach the server. Check the backend URL, deployment status, and connection, then refresh.'}
     </div>
   );
 };

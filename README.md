@@ -166,8 +166,20 @@ npm run frontend:task4  # Start frontend → http://localhost:5175
 
 | Target | Platform | Config |
 | :--- | :--- | :--- |
-| Frontend | Netlify | Base: `frontend`, Build: `npm run build`, Publish: `dist`, Env: `VITE_API_URL` |
+| Frontend | Vercel | Root: `frontend`, Build: `npm run build`, Output: `dist`, Env: `VITE_API_URL` |
 | Backend | Render | Root: `backend`, Start: `npm start`, Env: `PORT`, `ADMIN_KEY`, `DATABASE_PATH`, `FRONTEND_ORIGIN` |
+
+### Connect the Render backend to the Vercel frontend
+
+1. In Vercel, set `VITE_API_URL` to the public Render service URL ending in `/api`.
+2. Redeploy Vercel after changing the variable because Vite reads it at build time.
+3. In Render, set `FRONTEND_ORIGIN` to the exact Vercel origin, for example
+   `https://student-showcase.vercel.app`, without a trailing slash.
+4. If multiple frontend origins are used, separate them with commas in `FRONTEND_ORIGIN`.
+5. Verify `https://your-service.onrender.com/api/health` returns a JSON `status: "ok"` response.
+
+The backend normally rejects requests from a frontend origin not listed in `FRONTEND_ORIGIN`,
+which is the most common cause of a Vercel frontend failing to load data from Render.
 
 ---
 

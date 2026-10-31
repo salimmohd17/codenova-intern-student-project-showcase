@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
+import { API_BASE } from './api.js';
 
-const HEALTH_URL = (import.meta.env.VITE_API_URL
-  ? (import.meta.env.VITE_API_URL.replace(/\/$/, '').replace(/\/api$/, '') + '/api')
-  : 'http://localhost:5005/api') + '/health';
+const HEALTH_URL = `${API_BASE}/health`;
 
 /**
  * Pings the Render backend health endpoint immediately on mount.
