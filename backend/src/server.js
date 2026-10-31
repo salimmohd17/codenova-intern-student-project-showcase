@@ -12,6 +12,13 @@ app.get('/', (req, res) => {
     message: 'CodeNova Student Project Showcase API is running.'
   });
 });
+app.get('/api', (_req, res) => {
+  res.json({
+    status: 'success',
+    message: 'CodeNova Student Project Showcase API endpoints are ready.',
+    endpoints: ['/api/health', '/api/projects', '/api/admin/projects'],
+  });
+});
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')
   .split(',')
   .map(origin => origin.trim().replace(/\/$/, ''))

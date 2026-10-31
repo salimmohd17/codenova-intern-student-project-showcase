@@ -6,6 +6,13 @@ import admin from '../src/routes/admin.js';
 import '../src/db.js';
 
 const app = express();
+app.get('/api', (_req, res) => {
+  res.json({
+    status: 'success',
+    message: 'CodeNova Student Project Showcase API endpoints are ready.',
+    endpoints: ['/api/health', '/api/projects', '/api/admin/projects'],
+  });
+});
 
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '')
   .split(',')
