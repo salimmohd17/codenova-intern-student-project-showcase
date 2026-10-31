@@ -3,8 +3,8 @@ import { request } from '../api.js';
 import EmptyState from './EmptyState.jsx';
 
 export default function AdminPanel({ onNotice, onChanged }) {
-  const [key, setKey] = useState(() => localStorage.getItem('admin-key') || '');
-  const [activeKey, setActiveKey] = useState(() => localStorage.getItem('admin-key') || '');
+  const [key, setKey] = useState('');
+  const [activeKey, setActiveKey] = useState('');
   const [status, setStatus] = useState('pending');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -19,8 +19,7 @@ export default function AdminPanel({ onNotice, onChanged }) {
       });
       setProjects(data.projects);
       setActiveKey(adminKey);
-      setKey(adminKey);
-      localStorage.setItem('admin-key', adminKey);
+      setKey('');
       setTagDrafts(Object.fromEntries(
         data.projects.map(project => [project.id, project.tags.join(', ')]),
       ));
@@ -88,7 +87,7 @@ export default function AdminPanel({ onNotice, onChanged }) {
         <summary>Administrator moderation portal</summary>
         <p className="panel__intro">
           Review submissions and approve them for the public gallery. The admin key is sent to the
-          backend only and is saved on this browser for convenient access after refresh.
+          backend only. The key field is cleared after loading and is never saved in the browser.
         </p>
         <div className="admin-controls">
           <input
