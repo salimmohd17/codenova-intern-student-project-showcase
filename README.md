@@ -169,6 +169,12 @@ npm run frontend:task4  # Start frontend → http://localhost:5175
 | Frontend | Vercel | Root: `frontend`, Build: `npm run build`, Output: `dist`, Env: `VITE_API_URL` |
 | Backend | Render | Root: `backend`, Start: `npm start`, Env: `PORT`, `ADMIN_KEY`, `DATABASE_PATH`, `FRONTEND_ORIGIN` |
 
+### Render database persistence
+
+SQLite data survives normal restarts only when the database is stored on a Render persistent disk.
+Configure a disk at `/var/data`, then set `DATABASE_PATH=/var/data/app.db` in Render.
+Without a persistent disk, Render can remove database changes whenever the service redeploys or restarts.
+
 ### Connect the Render backend to the Vercel frontend
 
 1. In Vercel, set `VITE_API_URL` to the public Render service URL ending in `/api`.

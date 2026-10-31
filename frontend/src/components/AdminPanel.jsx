@@ -3,8 +3,8 @@ import { request } from '../api.js';
 import EmptyState from './EmptyState.jsx';
 
 export default function AdminPanel({ onNotice, onChanged }) {
-  const [key, setKey] = useState('');
-  const [activeKey, setActiveKey] = useState('');
+  const [key, setKey] = useState(() => localStorage.getItem('admin-key') || '');
+  const [activeKey, setActiveKey] = useState(() => localStorage.getItem('admin-key') || '');
   const [status, setStatus] = useState('pending');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,6 +20,7 @@ export default function AdminPanel({ onNotice, onChanged }) {
       setProjects(data.projects);
       setActiveKey(adminKey);
       setKey(adminKey);
+      localStorage.setItem('admin-key', adminKey);
       setTagDrafts(Object.fromEntries(
         data.projects.map(project => [project.id, project.tags.join(', ')]),
       ));
@@ -60,24 +61,24 @@ export default function AdminPanel({ onNotice, onChanged }) {
     } catch (error) {
       onNotice({ type: 'error', message: error.message });
     }
+  }
 
-    async function saveTags(id) {
-      try {
-        const tags = tagDrafts[id]
-          .split(',')
-          .map(tag => tag.trim())
-          .filter(Boolean);
-        const data = await request(`/admin/projects/${id}/tags`, {
-          method: 'PATCH',
-          headers: { 'x-admin-key': activeKey },
-          body: JSON.stringify({ tags }),
-        });
-        onNotice({ type: 'success', message: data.message });
-        await load();
-        onChanged();
-      } catch (error) {
-        onNotice({ type: 'error', message: error.message });
-      }
+  async function saveTags(id) {
+    try {
+      const tags = tagDrafts[id]
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(Boolean);
+      const data = await request(`/admin/projects/${id}/tags`, {
+        method: 'PATCH',
+        headers: { 'x-admin-key': activeKey },
+        body: JSON.stringify({ tags }),
+      });
+      onNotice({ type: 'success', message: data.message });
+      await load();
+      onChanged();
+    } catch (error) {
+      onNotice({ type: 'error', message: error.message });
     }
   }
 
@@ -87,7 +88,7 @@ export default function AdminPanel({ onNotice, onChanged }) {
         <summary>Administrator moderation portal</summary>
         <p className="panel__intro">
           Review submissions and approve them for the public gallery. The admin key is sent to the
-          backend only and is not saved in the browser.
+          backend only and is saved on this browser for convenient access after refresh.
         </p>
         <div className="admin-controls">
           <input
