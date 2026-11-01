@@ -23,7 +23,7 @@ A community gallery where students submit their projects for review. Approved pr
 | :--- | :--- |
 | **Frontend** | React 19 + Vite, Inter font |
 | **Backend** | Node.js + Express (ESM) |
-| **Database** | SQLite via `better-sqlite3` |
+| **Database** | Supabase PostgreSQL via `pg` |
 | **Styling** | Custom CSS — navy/blue theme, responsive layout |
 | **Auth** | Admin key via `x-admin-key` request header |
 
@@ -46,9 +46,10 @@ A community gallery where students submit their projects for review. Approved pr
 task-4-student-project-showcase/
 ├── backend/
 │   ├── src/
-│   │   ├── db.js              # SQLite setup, schema, sample seed
+│   │   ├── db.js              # PostgreSQL pool and migrations
 │   │   ├── server.js          # Express entry point
 │   │   ├── validation.js      # Submission field validation
+│   ├── migrations/
 │   │   └── routes/
 │   │       ├── projects.js
 │   │       └── admin.js
@@ -167,13 +168,12 @@ npm run frontend:task4  # Start frontend → http://localhost:5175
 | Target | Platform | Config |
 | :--- | :--- | :--- |
 | Frontend | Vercel | Root: `frontend`, Build: `npm run build`, Output: `dist`, Env: `VITE_API_URL` |
-| Backend | Render | Root: `backend`, Start: `npm start`, Env: `PORT`, `ADMIN_KEY`, `DATABASE_PATH`, `FRONTEND_ORIGIN` |
+| Backend | Render | Root: `backend`, Start: `npm start`, Env: `PORT`, `ADMIN_KEY`, `DATABASE_URL`, `FRONTEND_ORIGIN` |
 
 ### Render database persistence
 
 SQLite data survives normal restarts only when the database is stored on a Render persistent disk.
-Configure a disk at `/var/data`, then set `DATABASE_PATH=/var/data/app.db` in Render.
-Without a persistent disk, Render can remove database changes whenever the service redeploys or restarts.
+Database storage is provided by Supabase PostgreSQL. No Render persistent disk is required.
 
 ### Connect the Render backend to the Vercel frontend
 

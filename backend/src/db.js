@@ -1,42 +1,70 @@
-import Database from 'better-sqlite3';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-const here = path.dirname(fileURLToPath(import.meta.url));
-const hasRenderDataDisk = process.env.RENDER === 'true'
-  && fs.existsSync('/var/data');
-const configured = process.env.DATABASE_PATH
-  || (hasRenderDataDisk ? '/var/data/app.db' : './data/projects.db');
-const dbPath = path.isAbsolute(configured) ? configured : path.resolve(process.cwd(), configured);
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.exec(`CREATE TABLE IF NOT EXISTS projects (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  student_name TEXT NOT NULL,
-  description TEXT NOT NULL,
-  tags TEXT NOT NULL,
-  github_url TEXT NOT NULL,
-  demo_url TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
-  submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  reviewed_at TEXT,
-  review_note TEXT
-);`);
+import pg from 'pg';
 
-const projectColumns = db.prepare('PRAGMA table_info(projects)').all();
-if (!projectColumns.some(column => column.name === 'tags')) {
-  db.exec("ALTER TABLE projects ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
+const { Pool } = pg;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required. Configure it in the backend environment.');
 }
 
-db.exec(`CREATE TABLE IF NOT EXISTS project_ratings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id INTEGER NOT NULL,
-  rater_id TEXT NOT NULL,
-  rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(project_id, rater_id),
-  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
-)`);
-export default db;
+const databaseUrl = new URL(process.env.DATABASE_URL);
+const isRemote = !['localhost', '127.0.0.1'].includes(databaseUrl.hostname);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: isRemote ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+});
+
+pool.on('error', error => {
+  console.error('Unexpected PostgreSQL pool error:', error.message);
+});
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const migrationsDirectory = path.resolve(here, '../migrations');
+let migrationPromise;
+
+export async function initializeDatabase() {
+  if (migrationPromise) return migrationPromise;
+
+  migrationPromise = (async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          name TEXT PRIMARY KEY,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      const applied = await client.query('SELECT name FROM schema_migrations');
+      const appliedNames = new Set(applied.rows.map(row => row.name));
+      const files = (await fs.readdir(migrationsDirectory))
+        .filter(file => file.endsWith('.sql'))
+        .sort();
+
+      for (const file of files) {
+        if (appliedNames.has(file)) continue;
+        const sql = await fs.readFile(path.join(migrationsDirectory, file), 'utf8');
+        await client.query(sql);
+        await client.query('INSERT INTO schema_migrations(name) VALUES ($1)', [file]);
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      migrationPromise = undefined;
+      throw error;
+    } finally {
+      client.release();
+    }
+  })();
+
+  return migrationPromise;
+}
+
+export const query = (text, params) => pool.query(text, params);
+export const getPool = () => pool;
+export default pool;

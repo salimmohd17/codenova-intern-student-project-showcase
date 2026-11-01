@@ -1,16 +1,21 @@
 import { Router } from 'express';
-import db from '../db.js';
+import { query } from '../db.js';
 import { validateProject } from '../validation.js';
 
 const router = Router();
+const asyncHandler = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
-const getRatingSummary = projectId => db.prepare(`
+const getRatingSummary = async projectId => {
+  const { rows } = await query(`
   SELECT COUNT(*) AS count, COALESCE(AVG(rating), 0) AS average
   FROM project_ratings
-  WHERE project_id = ?
-`).get(projectId);
+  WHERE project_id = $1
+`, [projectId]);
+  return rows[0];
+};
 
 const parseTags = value => {
+  if (Array.isArray(value)) return value.map(String);
   try {
     const tags = JSON.parse(value);
     return Array.isArray(tags) ? tags.map(String) : [];
@@ -19,38 +24,39 @@ const parseTags = value => {
   }
 };
 
-router.get('/', (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
   const tag = String(req.query.tag || '').trim().toLowerCase();
-  const rows = db.prepare(`
+  const { rows } = await query(`
     SELECT id, title, student_name, description, tags, github_url, demo_url,
            status, submitted_at, reviewed_at
     FROM projects
     WHERE status = 'approved'
     ORDER BY submitted_at DESC
-  `).all().map(project => {
-    const rating = getRatingSummary(project.id);
+  `);
+  const projectsWithRatings = await Promise.all(rows.map(async project => {
+    const rating = await getRatingSummary(project.id);
     return {
       ...project,
       tags: parseTags(project.tags),
-      rating_count: rating.count,
+      rating_count: Number(rating.count),
       average_rating: Number(Number(rating.average).toFixed(1)),
     };
-  });
+  }));
 
-  const projects = rows.filter(project =>
+  const projects = projectsWithRatings.filter(project =>
     (!q || `${project.title} ${project.student_name} ${project.description} ${project.tags.join(' ')}`
       .toLowerCase()
       .includes(q))
     && (!tag || project.tags.some(projectTag => projectTag.toLowerCase() === tag)),
   );
-  const tags = [...new Set(rows.flatMap(project => project.tags))]
+  const tags = [...new Set(projectsWithRatings.flatMap(project => project.tags))]
     .sort((a, b) => a.localeCompare(b));
 
   res.json({ projects, tags, total: projects.length });
-});
+}));
 
-router.post('/:id/rating', (req, res) => {
+router.post('/:id/rating', asyncHandler(async (req, res) => {
   const projectId = Number(req.params.id);
   const rating = Number(req.body?.rating);
   if (!Number.isInteger(projectId) || projectId <= 0) {
@@ -59,7 +65,11 @@ router.post('/:id/rating', (req, res) => {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return res.status(400).json({ error: 'Rating must be between 1 and 5 stars.' });
   }
-  if (!db.prepare("SELECT id FROM projects WHERE id=? AND status='approved'").get(projectId)) {
+  const projectResult = await query(
+    "SELECT id FROM projects WHERE id = $1 AND status = 'approved'",
+    [projectId],
+  );
+  if (!projectResult.rowCount) {
     return res.status(404).json({ error: 'Published project not found.' });
   }
 
@@ -68,21 +78,21 @@ router.post('/:id/rating', (req, res) => {
     return res.status(400).json({ error: 'Viewer identifier is required.' });
   }
 
-  db.prepare(`
+  await query(`
     INSERT INTO project_ratings(project_id, rater_id, rating)
-    VALUES (?, ?, ?)
-    ON CONFLICT(project_id, rater_id) DO UPDATE SET rating=excluded.rating
-  `).run(projectId, raterId, rating);
+    VALUES ($1, $2, $3)
+    ON CONFLICT(project_id, rater_id) DO UPDATE SET rating = EXCLUDED.rating
+  `, [projectId, raterId, rating]);
 
-  const summary = getRatingSummary(projectId);
+  const summary = await getRatingSummary(projectId);
   res.json({
     message: 'Thank you for rating this project.',
-    rating_count: summary.count,
+    rating_count: Number(summary.count),
     average_rating: Number(Number(summary.average).toFixed(1)),
   });
-});
+}));
 
-router.post('/', (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { errors, value } = validateProject(req.body);
   if (Object.keys(errors).length) {
     return res.status(400).json({
@@ -91,22 +101,23 @@ router.post('/', (req, res) => {
     });
   }
 
-  const result = db.prepare(`
+  const result = await query(`
     INSERT INTO projects(title, student_name, description, tags, github_url, demo_url)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(
+    VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+    RETURNING id
+  `, [
     value.title,
     value.student_name,
     value.description,
     JSON.stringify(value.tags),
     value.github_url,
     value.demo_url,
-  );
+  ]);
 
   res.status(201).json({
     message: 'Project submitted for moderation. It will appear publicly only after approval.',
-    project: { id: result.lastInsertRowid, ...value, status: 'pending' },
+    project: { id: result.rows[0].id, ...value, status: 'pending' },
   });
-});
+}));
 
 export default router;

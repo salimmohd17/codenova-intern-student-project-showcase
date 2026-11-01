@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import projects from '../src/routes/projects.js';
 import admin from '../src/routes/admin.js';
-import '../src/db.js';
+import { initializeDatabase } from '../src/db.js';
 
 const app = express();
 app.get('/api', (_req, res) => {
@@ -41,6 +41,16 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: '100kb' }));
+
+app.use(async (_req, res, next) => {
+  try {
+    await initializeDatabase();
+    next();
+  } catch (error) {
+    console.error('Database initialization failed:', error.message);
+    res.status(503).json({ error: 'Database is temporarily unavailable.' });
+  }
+});
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'CodeNova Task 4 Student Project Showcase API' }));
 app.use('/api/projects', projects);
